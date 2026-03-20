@@ -42,11 +42,11 @@ function clearTokenCookies(res) {
 }
 
 exports.register = async (req, res, next) => {
-  const { name, email, password, phone } = req.body;
+  const { name, email, password, phoneNumber } = req.body;
 
-  if (!name || !email || !password || !phone) {
+  if (!name || !email || !password || !phoneNumber) {
     return res.status(400).json({
-      error: "name, email, password, and phone are required",
+      error: "name, email, password, and phoneNumber are required",
     });
   }
 
@@ -65,7 +65,7 @@ exports.register = async (req, res, next) => {
   const user = await User.create({
     name,
     email: normalizedEmail,
-    phone,
+    phoneNumber: phoneNumber,
   });
 
   const hashedPassword = await hashing(password);
@@ -93,6 +93,11 @@ exports.login = async (req, res, next) => {
   const user = await User.findOne({ email: normalizedEmail });
   if (!user) {
     return res.status(401).json({ error: "Invalid email or password" });
+  }
+  if (user.status === false) {
+    return res.status(403).json({
+      error: "Your account has been disabled. Please contact support.",
+    });
   }
 
   const account = await Account.findOne({
@@ -237,6 +242,13 @@ exports.refresh = async (req, res, next) => {
     clearTokenCookies(res);
     return res.status(401).json({ error: "User not found" });
   }
+  if (user.status === false) {
+    await Session.deleteMany({ user: user._id });
+    clearTokenCookies(res);
+    return res.status(403).json({
+      error: "Your account has been disabled. Please contact support.",
+    });
+  }
 
   await Session.deleteOne({ _id: session._id });
 
@@ -318,7 +330,7 @@ exports.verifyEmail = async (req, res, next) => {
 
   const verification = await Verification.findOne({
     value: hashToken(token),
-    type: "email_verification",
+    type: Verifications.EMAIL_VERIFICATION,
     expiresAt: { $gt: new Date() },
   });
 

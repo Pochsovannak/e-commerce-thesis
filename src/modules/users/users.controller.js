@@ -1,4 +1,5 @@
 const { User } = require("./users.model");
+const { Session } = require("../auth/sessions.model");
 const { generateToken, hashToken, addDays } = require("../../utils/token.util");
 const { sendVerificationEmail } = require("../../utils/email.util");
 const Roles = require("../../constants/Roles");
@@ -125,8 +126,9 @@ exports.adminSetUserStatus = async (req, res) => {
 exports.adminSetUserRole = async (req, res) => {
   const { role } = req.body;
  
-  if (!Roles.includes(role)) {
-    return res.status(400).json({ error: `role must be one of: ${Roles.join(", ")}` });
+  const allowedRoles = Object.values(Roles);
+  if (!allowedRoles.includes(role)) {
+    return res.status(400).json({ error: `role must be one of: ${allowedRoles.join(", ")}` });
   }
  
   const user = await User.findById(req.params.id);

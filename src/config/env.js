@@ -21,7 +21,7 @@ exports.config = {
   },
   cors: {
     origin: process.env.CORS_ORIGIN || '*',
-    methods: process.env.CORS_METHODS || 'GET,POST,PUT,DELETE',
+    methods: process.env.CORS_METHODS || 'GET,POST,PUT,PATCH,DELETE,OPTIONS',
     allowedHeaders: process.env.CORS_ALLOWED_HEADERS || 'Content-Type,Authorization',
   },  
   telegram: {
@@ -30,8 +30,10 @@ exports.config = {
   },
   bakong: {
     apiUrl: process.env.BAKONG_BASE_API_URL,
-    accountId: process.env.BAKONG_ACCOUNT_ID,
-    storeLabel: process.env.BAKONG_STORE_LABEL,
+    accountId: process.env.BAKONG_ACCOUNT_ID || process.env.BAKONG_ACCOUNT_USERNAME,
+    secret: process.env.BAKONG_SECRET || process.env.BAKONG_ACCESS_SECRET,
+    accessToken: process.env.BAKONG_ACCESS_TOKEN,
+    storeLabel: process.env.BAKONG_STORE_LABEL || process.env.BAKONG_MERCHANT_STORE_LABEL,
     merchantName: process.env.BAKONG_MERCHANT_NAME,
     merchantCity: process.env.BAKONG_MERCHANT_CITY,
   },

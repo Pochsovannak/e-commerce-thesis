@@ -11,7 +11,7 @@ function getTransporter() {
       port: 465,
       auth: {
         user: "resend",
-        pass: "re_8MWx79h9_HxGKFuf7iYnkzNsUDcgucFtQ",
+        pass: "re_cQbHqbEm_E9yzeM69seFxyt3AtbQ87mWP",
       },
     });
   }

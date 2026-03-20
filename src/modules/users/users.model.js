@@ -39,6 +39,11 @@ const userSchema = new mongoose.Schema(
       enum: Object.values(Roles),
       default: Roles.USER,
     },
+    status: {
+      type: Boolean,
+      default: true,
+      index: true,
+    },
   },
   {
     timestamps: true,

@@ -35,7 +35,7 @@ exports.uploadFile = async (req, res, next) => {
 };
 
 exports.deleteFile = async (req, res, next) => {
-    const key = normalizeKey(req.query.key);
+    const key = normalizeKey(req.params.key || req.query.key);
 
     if (!key) {
       return res.status(400).json({ error: 'File key is required' });

@@ -1,5 +1,11 @@
 const mongoose = require("mongoose");
 const Roles = require("../../constants/Roles");
+const {
+  PRODUCT_CATEGORY_POPULATE,
+  buildProductCategoryPayload,
+  normalizeNullableObjectId,
+  serializeProductCategories,
+} = require("../categoies/categoies.service");
 const { removeFilesFromStorage } = require("../storage/storage.service");
 const { Product } = require("./products.model");
 const { Variant } = require("./varaints.model");
@@ -47,6 +53,18 @@ const ensureValidObjectId = (value, fieldName) => {
     error.statusCode = 400;
     throw error;
   }
+};
+
+const serializeProduct = (product, variants) => {
+  const serializedProduct = serializeProductCategories(product);
+
+  if (variants !== undefined) {
+    serializedProduct.variants = variants.map((variant) =>
+      typeof variant?.toJSON === "function" ? variant.toJSON() : variant
+    );
+  }
+
+  return serializedProduct;
 };
 
 const buildProductPayload = async (payload, currentProduct) => {
@@ -105,7 +123,6 @@ const buildProductPayload = async (payload, currentProduct) => {
 
   return data;
 };
-
 const normalizeVariantAttributes = (attributes) => {
   if (attributes === undefined) return undefined;
   if (!attributes || Array.isArray(attributes) || typeof attributes !== "object") {
@@ -140,11 +157,11 @@ const buildVariantPayload = (payload) => {
 
 const findProductByParam = async (value) => {
   if (mongoose.isValidObjectId(value)) {
-    const productById = await Product.findById(value);
+    const productById = await Product.findById(value).populate(PRODUCT_CATEGORY_POPULATE);
     if (productById) return productById;
   }
 
-  return Product.findOne({ slug: value });
+  return Product.findOne({ slug: value }).populate(PRODUCT_CATEGORY_POPULATE);
 };
 
 exports.createProduct = async (req, res) => {
@@ -162,7 +179,9 @@ exports.createProduct = async (req, res) => {
 
   let data;
   try {
-    data = await buildProductPayload(productPayload);
+    const productData = await buildProductPayload(productPayload);
+    const categoryData = await buildProductCategoryPayload(productPayload);
+    data = { ...productData, ...categoryData };
   } catch (error) {
     return sendKnownError(res, error);
   }
@@ -185,9 +204,11 @@ exports.createProduct = async (req, res) => {
     createdVariants = await Variant.insertMany(variantPayloads, { ordered: true });
   }
 
+  const populatedProduct = await Product.findById(product._id).populate(PRODUCT_CATEGORY_POPULATE);
+
   return res.status(201).json({
     message: "Product created successfully",
-    product: product.toJSON(),
+    product: serializeProduct(populatedProduct || product),
     variants: createdVariants.map((variant) => variant.toJSON()),
   });
 };
@@ -206,6 +227,28 @@ exports.listProducts = async (req, res) => {
     filter.$or = [{ name: regex }, { description: regex }, { slug: regex }];
   }
 
+  try {
+    if (req.query.categoryId !== undefined) {
+      filter.categoryId = normalizeNullableObjectId(req.query.categoryId, "categoryId");
+      if (!filter.categoryId) {
+        const error = new Error("categoryId is invalid");
+        error.statusCode = 400;
+        throw error;
+      }
+    }
+
+    if (req.query.subcategoryId !== undefined) {
+      filter.subcategoryId = normalizeNullableObjectId(req.query.subcategoryId, "subcategoryId");
+      if (!filter.subcategoryId) {
+        const error = new Error("subcategoryId is invalid");
+        error.statusCode = 400;
+        throw error;
+      }
+    }
+  } catch (error) {
+    return sendKnownError(res, error);
+  }
+
   if (publishedValue !== undefined) {
     filter.isPublished = publishedValue;
   } else if (!isAdmin(req)) {
@@ -213,7 +256,11 @@ exports.listProducts = async (req, res) => {
   }
 
   const [products, total] = await Promise.all([
-    Product.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limit),
+    Product.find(filter)
+      .populate(PRODUCT_CATEGORY_POPULATE)
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit),
     Product.countDocuments(filter),
   ]);
 
@@ -234,10 +281,12 @@ exports.listProducts = async (req, res) => {
   }
 
   return res.json({
-    products: products.map((product) => ({
-      ...product.toJSON(),
-      variants: includeVariants ? variantsByProduct[product._id.toString()] ?? [] : undefined,
-    })),
+    products: products.map((product) =>
+      serializeProduct(
+        product,
+        includeVariants ? variantsByProduct[product._id.toString()] ?? [] : undefined
+      )
+    ),
     pagination: {
       total,
       page,
@@ -261,8 +310,8 @@ exports.getProduct = async (req, res) => {
   const variants = await Variant.find({ productId: product._id }).sort({ createdAt: 1 });
 
   return res.json({
-    product,
-    variants,
+    product: serializeProduct(product),
+    variants: variants.map((variant) => variant.toJSON()),
   });
 };
 
@@ -281,16 +330,20 @@ exports.updateProduct = async (req, res) => {
 
   let data;
   try {
-    data = await buildProductPayload(req.body, product);
+    const productData = await buildProductPayload(req.body, product);
+    const categoryData = await buildProductCategoryPayload(req.body, product);
+    data = { ...productData, ...categoryData };
   } catch (error) {
     return sendKnownError(res, error);
   }
   Object.assign(product, data);
   await product.save();
 
+  const populatedProduct = await Product.findById(product._id).populate(PRODUCT_CATEGORY_POPULATE);
+
   return res.json({
     message: "Product updated successfully",
-    product: product.toJSON(),
+    product: serializeProduct(populatedProduct || product),
   });
 };
 

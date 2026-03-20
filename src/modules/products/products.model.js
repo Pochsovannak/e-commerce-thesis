@@ -62,6 +62,18 @@ const productSchema = new mongoose.Schema(
       default: 0,
       min: [0, "Discount cannot be negative"],
     },
+    categoryId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Category",
+      default: null,
+      index: true,
+    },
+    subcategoryId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Category",
+      default: null,
+      index: true,
+    },
     images: {
       type: [productImageSchema],
       default: [],
@@ -86,6 +98,7 @@ const productSchema = new mongoose.Schema(
 
 productSchema.index({ name: 1 });
 productSchema.index({ isPublished: 1 });
+productSchema.index({ categoryId: 1, subcategoryId: 1 });
 
 const Product = mongoose.model("Product", productSchema);
 
